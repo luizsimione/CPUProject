@@ -1,0 +1,508 @@
+
+"Executing a very simple test of add and addi instructions"
+-----------------------------------------------------------
+	
+	addi	$8,$0,20    // sets $8 = 20
+	add	$4,$8,0     // sets $4 = $8
+	addi	$2,$0,1     // sets $2 = 1 to perform "print_int" in syscall
+	syscall
+	addi	$2,$0,10    // sets $2 = 10 to perform "exit" in syscall
+
+
+
+"Executing a program testing a simple loop"
+-------------------------------------------
+
+sum_loop:
+	addi	$8,$0,20
+	addi	$9,$0,0
+L1:
+	beq	$8,$0,24  // jump 3 instructions (24 bytes) past
+	                  // the next instruction (to DONE)
+	
+	add	$9,$9,$8
+	addi	$8,$8,-1
+	j	-32      // jump back 4 instructions (-32 bytes) from
+	                 // the next instruction (to L1)
+DONE:
+	add	$4,$0,$9
+	addi	$2,$0,1   //$2 = 1, to perform "print_int" in syscall
+	syscall
+	addi	$2,$0,10  //$2 = 10, to perform "exit" in syscall
+	syscall
+
+
+
+"Executing an iterative factorial program"
+-----------------------------------------
+
+fac_iter: 
+	addi	$8,$0,7 // n: $8 = 0 + 7
+	addi	$9,$0,1 // running product: $9 = 1
+
+L1:	
+	beq	$8,$0,24  // if (n==0) jump 3 instructions (24 bytes)
+                          // past the next instruction (to DONE)
+	
+        mult	$9,$9,$8   // $9 = $9 * $8 (running product *= n)
+	addi	$8,$8,-1   // n = n-1
+	j	-32        // jump back 4 instructions (-32 bytes) from
+	                   // the next instruction (to L1)
+DONE:	
+	add	$4,$0,$9   // $4 = $9, the result to print
+	addi	$2,$0,1    // $2 =  1, for print_int in syscall.
+	syscall
+	addi	$2,$0,10   // $2 = 10, for exit in syscall.
+	syscall
+
+
+
+"executing a recursive factorial program"
+---------------------------------------
+
+	j  104   //  jump ahead 13 instructions (104 bytes) after
+	         //  the next instruction (to MAIN)
+
+FAC:
+	bne $4,$0,16   // if ($4 != 0) jump ahead two instruction (16 bytes)
+	               // after next instruction (to RECURSE)
+	addi $2,$0,1   // set $2 (the return value) = 1
+	j  72    //  jump ahead 9 instructions (72 bytes) after
+	         //  the next instruction (to DONE)
+
+RECURSE: 
+	addiu $29,$29,-16  //make room for two registers (16 bytes) on the stack
+	sw $31,$29,8      //save the  return address at 8($sp) (note $29 is the SP)
+	sw $4,$29,0       //store $4 at 0($sp)
+	addiu $4,$4,-1    // $4 = $4-1 , to pass n-1 as the argument 
+	jal -64           // call to the function (FAC) that starts at 8
+       	                  // instructions (64 bytes) before the next instruction.
+	lw $4,$29,0      //restore $4 from 0($sp)
+	lw $31,$29,8     //restore the saved return address from 8($sp)
+	addiu $29,$29,16 //adjust sp
+	mult $2,$2,$4    //multiply $2 (the return value from the recursive call) by $4 (n)
+DONE:
+	jr $31  // this is the return statement, jumping to the return address
+	        // stored in $31
+
+MAIN:
+	addi $4,$0,6 // $4 = 6, the initial value for n
+
+	//testing jalr to make a call, rather than jal as above.
+	lui $12, (FAC >> 32)   // put upper 32 bits of target address into $12
+	                       // Note: In the actual code (FAC >> 32), will be 0.
+	ori $12,$12,(FAC & 0xFFFFFFFF)  //insert lower 32 bits of target address into $12
+	jalr $12     //call to the address in $12
+	add $4,$0,$2 // $4 = $2, the result to print
+	addi $2, $0, 1 // $2 = $0 + 1, for print_int syscall.
+	syscall 
+	addi $2, $0, 10 // $2 = $0 + 10, for exit syscall.
+	syscall 
+
+
+
+"Executing a program testing the syscall (I/O) function"
+--------------------------------------------------------
+
+(Note:
+   - prompt_num_label is the address of the string "Input number >"
+	in simulated memory.
+   - prompt_str_label is the address of the string "Input string >"
+     in simulated memory.
+   - input_string_addr is the address in simulated memory where
+     space (80 bytes) for a string has been allocated.
+     
+
+  //print_string test
+  addi $4,$0,prompt_num_label
+
+  addi $2, $0, 4 // $2 = $0 + 4, for print_string syscall.
+  syscall 
+
+  //read_int test
+  
+  addi $2, $0, 5 // $2 = $0 + 5, for read_int, result is put in $2
+  syscall   
+  add $4,$0,$2   //$4 = $2, getting ready call print_int
+  addi $2, $0, 1 // $2 = 1, for print_int,
+  syscall   
+
+  //printing string prompt
+
+  addi $4,$0,prompt_str_label
+  addi $2, $0, 4 // $2 = $0 + 4, for print_string syscall.
+  syscall 
+
+  //read_string test
+  addi $2, $0, 8 // $2 = $8, for read_string 
+
+  addi $4,$0, input_string_addr  // load $4 with address of space for string
+
+  addi $5, $0, 80    // $5 = 80, the size of the allocated space (80 bytes)
+  syscall  
+
+  //now print the string just read
+  addi $4,$0, input_string_addr  // load $4 with address of the string to print  
+
+  addi $2, $0, 4 // $2 = $0 + 4, for print_string syscall.
+  syscall 
+
+  //exit
+
+  addi $2, $0, 10 // $2 = $0 + 10, for exit syscall.
+  syscall 
+
+
+
+
+
+"Executing a program testing all instructions not tested above"
+---------------------------------------------------------------
+
+(Note: DATA_SEGMENT_ADDRESS is the address in simulated memory 
+ where the data segment starts. DATA_SEGMENT_ADDRESS_HI is just the 
+ upper 32 bits of that address, DATA_SEGMENT_ADDRESS_LO is the 
+ lower 32 bits of the address. X_OFFSET is the offset 
+ of the global variable X from the start of the data segment.
+ x already has the value 4564520977 = 0x110111011 (hex).
+
+     //testing lh and ori
+     lui $8,DATA_SEGMENT_ADDRESS_HI     //loads top 32 bits
+     ori $8,$8,DATA_SEGMENT_ADDRESS_LO  //lower  32 bits
+
+      // loads x = 4564520977 into $4
+     lw $4, $8, X_OFFSET
+
+       //this code prints the int that is in $4
+       //should print 4564520977 
+     addi $2, $0, 1 // $2 = 1, for print_int,
+     syscall   
+
+     lui $8,DATA_SEGMENT_ADDRESS_HI  //loads top 32 bits
+     ori $8,$8,DATA_SEGMENT_ADDRESS_LO  //lower 32 bits
+
+       //loads bottom half of x, namely 0x10111011 = 269553681, into $4
+     lh $4, $8, X_OFFSET
+
+       //this code prints the int that is in $4
+       //should print 0x10111011 = 269553681
+     addi $2, $0, 1 // $2 = 1, for print_int,
+     syscall   
+
+       //testing lb
+     lui $8,DATA_SEGMENT_ADDRESS_HI  //loads top 32 bits
+     ori $8,$8,DATA_SEGMENT_ADDRESS_LO  //lower 32 bits
+
+       //loads bottom byte of x, namely 0x11 = 17 into $4
+     lb $4, $8, X_OFFSET
+
+       //this code prints the int that is in $4
+       //should print 17
+     addi $2, $0, 1 // $2 = 1, for print_int,
+     syscall   
+
+       //testing nor, andi
+     nor $9,$0,$0  //sets $9 to all 1's
+
+     andi $4,$9,345  //since $9 is all 1's, $8 = 345
+
+       //this code prints the int that is in $4
+       //should print 345
+     addi $2, $0, 1 // $2 = 1, for print_int,
+     syscall   
+
+       //testing xori  note: a xor b xor a => b
+     addi $4,$0,125  //$4 = 125
+     xori $4,$4,99  //$4 = $4 xor 99
+     xori $4,$4,125  //$4 = $4 xor 125, should be 99
+
+       //this code prints the int that is in $4
+       //should print 99
+     addi $2, $0, 1 // $2 = 1, for print_int,
+     syscall   
+
+       // testing sll, by shifting $4 left by 2. if $4 contains 345,
+       // the result should be 1380
+     addi $4,$0,345  //$4 = 345
+     sll $4, $4, 2
+
+       //this code prints the int that is in $4
+       //should print 1380
+     addi $2, $0, 1 // $2 = 1, for print_int,
+     syscall   
+
+       //testing srl, by shifting $4 right by 3. since $4 contains 1380, the result should be 172
+     srl $4, $4, 3
+
+       //this code prints the int that is in $4
+       //should print 172
+     addi $2, $0, 1 // $2 = 1, for print_int,
+     syscall   
+
+       //testing sub, and sra. put -25 into $4 and shift right by 2. the result should be -7
+       
+     addi $10,$0, 25
+     sub $4, $0, $10 //$4 = -25
+
+     sra $4, $4, 2 //now $4 = -7  rounds down
+
+       //this code prints the int that is in $4
+       //should print -7
+     addi $2, $0, 1 // $2 = 1, for print_int,
+     syscall   
+
+     addi $4, $0, 7 // $4 = 7
+     addi $8, $0, 3 // t = 3, the shift amount
+       //testing sllv, by shifting $4 left by $8  3. since $4 contains 7, the result should be 56
+     sllv $4, $4, $8
+
+       //this code prints the int that is in $4
+       //should print 56
+     addi $2, $0, 1 // $2 = 1, for print_int,
+     syscall   
+
+       //testing srl, by shifting $4 right by 2. since $4 contains 56, the result should be 14
+     addi $8, $0, 2 // t = 2, the shift amount
+     srlv $4, $4, $8
+
+       //this code prints the int that is in $4
+       //should print 14
+     addi $2, $0, 1 // $2 = 1, for print_int,
+     syscall   
+
+       //testing sub, and srav. put -25 into $4 and shift right by 2. the result should be -7
+       
+     addi $10,$0, 25
+     sub $4, $0, $10 //$4 = -25
+
+     srav $4, $4, $8 //now $4 = -7  rounds down
+
+       //this code prints the int that is in $4
+       //should print -7
+     addi $2, $0, 1 // $2 = 1, for print_int,
+     syscall   
+
+
+     //Testing SH, writing 0x23456789 to low half-word of x
+     //x should then be 0x123456789 = 4886718345 decimal
+       
+     lui $8,DATA_SEGMENT_ADDRESS_HI  //loads top 32 bits
+     ori $8,$8,DATA_SEGMENT_ADDRESS_LO  //lower 32 bits
+
+     addi $9,$0, 0x20
+     sh $9, $8, X_OFFSET
+
+       //now loading all of x and printing it.
+     lw $4, $8, X_OFFSET
+
+       //this code prints the int that is in $4
+       //should print 4886718345
+     addi $2, $0, 1 // $2 = 1, for print_int,
+     syscall   
+
+
+       //testing sb, writing 0x00 to low byte of x  although the register will contain 0xff00
+       //x should then be 0x123456700 = 4886718208 decimal
+     lui $8,DATA_SEGMENT_ADDRESS_HI  //loads top 32 bits
+     ori $8,$8,DATA_SEGMENT_ADDRESS_LO  //lower 32 bits
+
+     addi $9,$0, 0xff00
+     sb $9, $8, X_OFFSET
+
+       //now loading all of x and printing it.
+     lw $4, $8, X_OFFSET
+
+       //this code prints the int that is in $4
+       //should print 4886718208
+     addi $2, $0, 1 // $2 = 1, for print_int,
+     syscall   
+
+     //Testing lh and lhu.  Set x = 0x 0fff ffff ffff and perform lh and then lhu. lh should
+  //load a negative number (-1), LHU should load a positive number (4294967295)
+
+     lui $8,DATA_SEGMENT_ADDRESS_HI  //loads top 32 bits
+     ori $8,$8,DATA_SEGMENT_ADDRESS_LO  //lower 32 bits
+
+     addi $11,$0,0x0fffffffffff // 44 ones (there's room for 48 bits)
+
+     sw $11, $8, X_OFFSET
+
+     lh $4, $8, X_OFFSET
+
+       //this code prints the int that is in $4
+       //should print -1
+     addi $2, $0, 1 // $2 = 1, for print_int,
+     syscall   
+
+     lui $8,DATA_SEGMENT_ADDRESS_HI  //loads top 32 bits
+     ori $8,$8,DATA_SEGMENT_ADDRESS_LO  //lower 32 bits
+
+     lhu $4, $8, X_OFFSET
+
+       //this code prints the int that is in $4
+       //should print 4294967295
+     addi $2, $0, 1 // $2 = 1, for print_int,
+     syscall   
+
+       //testing lb and lbu.  set x = 0x11ff and perform lh and then lhu. lh should
+       //load a negative number,  -1, lbu should load a positive number  255
+
+     lui $8,DATA_SEGMENT_ADDRESS_HI  //loads top 32 bits
+     ori $8,$8,DATA_SEGMENT_ADDRESS_LO  //lower 32 bits
+
+     addi $11,$0,0x11ff  // put 0x11ff in $11
+
+     sw $11, $8, X_OFFSET  // and store it in $11
+
+     lb $4, $8, X_OFFSET  // load lowest byte of x into $4 as a signed number
+
+       //this code prints the int that is in $4
+       //should print -1
+     addi $2, $0, 1 // $2 = 1, for print_int,
+     syscall   
+
+     lui $8,DATA_SEGMENT_ADDRESS_HI  //loads top 32 bits
+     ori $8,$8,DATA_SEGMENT_ADDRESS_LO  //lower 32 bits
+
+     lbu $4, $8, X_OFFSET  // load lowest byte of x into $4 as an unsigned number
+       //this code prints the int that is in $4
+       //should print 255
+     addi $2, $0, 1 // $2 = 1, for print_int,
+     syscall   
+
+    //testing lui.  Load 2 into the upper half of A0, printing 2^33 = 8589934592       
+
+     lui $4, 2
+
+       //this code prints the int that is in $4
+       //should print 8589934592
+     addi $2, $0, 1 // $2 = 1, for print_int,
+     syscall   
+
+       //testing slt.  setting $4 =  $13 (-1) < $14 (200) = 1 
+
+     addi $13, $0, 0x0xFFFFFFFFFFFF //sets $13 = -1  due to sign extension of 0xFFFFFFFFFFFF (48 ones)
+     ori $14, $0, 200
+     slt $4, $13, $14
+
+       //this code prints the int that is in $4
+       //should print 1
+     addi $2, $0, 1 // $2 = 1, for print_int,
+     syscall   
+
+       //now reverse order of operands to slt, should print 0
+
+     slt $4, $14, $13
+
+       //this code prints the int that is in $4
+       //should print 0
+     addi $2, $0, 1 // $2 = 1, for print_int,
+     syscall   
+
+       //testing slti.  setting $4 =  $13 (-1) < 200 = 1 
+
+     addi $13, $0, 0xFFFFFFFFFFFF //sets $13 = -1  due to sign extension of 0xFFFFFFFFFFFF (48 ones)
+     slti $4, $13, 200
+
+       //this code prints the int that is in $4
+       //should print 1
+     addi $2, $0, 1 // $2 = 1, for print_int,
+     syscall   
+
+       //testing slti.  setting $4 =  $13  -1 < -2 = 0
+
+     addi $13, $0, 0x0xFFFFFFFFFFFF //sets $13 = -1  due to sign extension of 0xffff
+     slti $4, $13, 0xFFFFFFFFFFFE   //0xFFFFFFFFFFFE = -2 due to sign extension
+
+       //this code prints the int that is in $4
+       //should print 0
+     addi $2, $0, 1 // $2 = 1, for print_int,
+     syscall   
+
+       //testing sltiu.  setting $4 =  $13 (-1) < 200 = 0   
+       //because -1 is interpreted as a large positive number
+
+     addi $13, $0, 0xFFFFFFFFFFFF //sets $13 = -1  due to sign extension of 0xFFFFFFFFFFFF
+     sltiu $4, $13, 200
+
+       //this code prints the int that is in $4
+       //should print 0
+     addi $2, $0, 1 // $2 = 1, for print_int,
+     syscall   
+
+       //testing sltiu.  setting $4 =  $13 (200) < -1 = 1   
+       //because -1 is interpreted as a large positive number
+
+     addi $13, $0, 200    //sets $13 = 200
+     sltiu $4, $13,0xFFFFFFFFFFFF  // $4 =  200 < -1 =  1
+
+       //this code prints the int that is in $4
+       //should print 1
+     addi $2, $0, 1 // $2 = 1, for print_int,
+     syscall   
+
+
+     //test MULT (with large result)
+
+     addi $13,$0, 1234567    // set $13 = 12345678
+     addi $14,$O, -87654321  // set $14 = -87654321
+     mult $4, $13, $14       // set $4 = $13 * $14 = -1082152022374638
+
+     //this code prints the int that is in $4
+     //should print -1082152022374638
+
+     addi $2, $0, 1 // $2 = 1, for print_int,
+     syscall   
+
+     //testing div
+
+     addi $13,$0, 456787654321   // set $13 = 456787654321
+     addi $14,$0,-456            // set $14 = -456
+     div  $4,$13,$14             // set $4 = $13 / $14 = -1001727312
+       
+       //this code prints the int that is in $4
+       //should print -1001727312
+
+     addi $2, $0, 1 // $2 = 1, for print_int,
+     syscall   
+
+     //testing MOD
+     // $13 still contains 456787654321 and $14 still contains -456
+     // and 456787654321 MOD -456 = 49
+
+     mod  $4,$13,$14             // set $4 = $13 % $14 = 49
+       
+       //this code prints the int that is in $4
+       //should print 49
+
+     addi $2, $0, 1 // $2 = 1, for print_int,
+     syscall   
+
+
+     //testing and, or, and xor
+
+     addi $9,$0, 0xff //$9 = 0xff
+     addi $10,$0, 0x34 //$10 = 0x34
+     and $9,$9, $10 //$9 = $9 & $10 = 0x34
+     addi $10,$0, 0x70 //now $10 = 0x70
+     or $9,$9, $10 //$9 = $9 or $10 = 0x74
+
+     add $4,$9,$0 //$4 = $9 = 0x74 = 116 for printing
+
+       //this code prints the int that is in $4
+       //should print 116
+     addi $2, $0, 1 // $2 = 1, for print_int,
+     syscall   
+
+     addi $10,$0, 0xf //now $10 = 0xf 
+
+     xor $4,$9,$10 //$4 = $9 ^ $10 = 0x74 ^ 0xf = 0x7n = 123
+
+       //this code prints the int that is in $4
+       //should print 123
+     addi $2, $0, 1 // $2 = 1, for print_int,
+     syscall   
+
+       //---- exit ------
+     addi $2, $0, 10 // $2 = $0 + 10, for exit syscall.
+     syscall 
